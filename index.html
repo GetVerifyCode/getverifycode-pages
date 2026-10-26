@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Why SMS OTP Codes Fail to Arrive | GetVerifyCode</title>
+  <meta name="description" content="A practical playbook for missed SMS verification codes: wrong numbers, carrier filters, resend bugs, and how to debug delivery before you blame the provider.">
+  <link rel="canonical" href="https://getverifycode.pages.dev/">
+  <meta property="og:title" content="Why SMS OTP Codes Fail to Arrive">
+  <meta property="og:description" content="Debug missed SMS verification codes: number format, carriers, resend behavior, and staging checks.">
+  <meta property="og:url" content="https://getverifycode.pages.dev/">
+  <meta property="og:type" content="article">
+  <meta name="theme-color" content="#3f72af">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --atmosphere: #f9f7f7;
+      --ink: #112d4e;
+      --ink-muted: #4a5a6a;
+      --line: #c5d0e0;
+      --header: #3f72af;
+      --header-ink: #ffffff;
+      --accent: #3f72af;
+      --accent-hover: #112d4e;
+      --accent-soft: #dbe2ef;
+      --focus: #3f72af;
+      --font: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+      --measure: 72rem;
+      --read: 48rem;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      font-size: 1.05rem;
+      color: var(--ink);
+      background:
+        radial-gradient(1100px 480px at 8% -18%, rgb(63 114 175 / 0.16), transparent 58%),
+        radial-gradient(900px 420px at 100% 0%, rgb(17 45 78 / 0.07), transparent 52%),
+        var(--atmosphere);
+      line-height: 1.65;
+    }
+    ::selection { background: rgb(63 114 175 / 0.25); color: var(--ink); }
+    a { color: var(--accent); text-underline-offset: 0.18em; }
+    a:hover { color: var(--accent-hover); }
+    a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+    .top { background: var(--header); color: var(--header-ink); }
+    .top-inner {
+      max-width: var(--measure);
+      margin: 0 auto;
+      padding: 0.95rem 1.25rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.85rem 1.5rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: inherit;
+      text-decoration: none;
+    }
+    .brand:hover { color: #fff; }
+    .top-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 1rem;
+      font-size: 0.92rem;
+      font-weight: 500;
+    }
+    .top-links a {
+      color: rgb(255 255 255 / 0.92);
+      text-decoration: none;
+    }
+    .top-links a:hover {
+      color: #fff;
+      text-decoration: underline;
+    }
+
+    .hero {
+      max-width: var(--measure);
+      margin: 0 auto;
+      padding: 2.4rem 1.25rem 1.35rem;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 4.2vw, 3rem);
+      font-weight: 800;
+      line-height: 1.08;
+      letter-spacing: -0.035em;
+      margin: 0 0 0.85rem;
+      max-width: 18ch;
+    }
+    .hero .lede {
+      margin: 0;
+      max-width: 42rem;
+      color: var(--ink-muted);
+      font-size: 1.12rem;
+    }
+    .byline {
+      margin: 1rem 0 0;
+      font-size: 0.92rem;
+      color: var(--ink-muted);
+    }
+
+    .layout {
+      max-width: var(--measure);
+      margin: 0 auto;
+      padding: 0 1.25rem 3.5rem;
+      display: grid;
+      grid-template-columns: 11.5rem minmax(0, 1fr);
+      gap: 2rem;
+      align-items: start;
+    }
+    .toc {
+      position: sticky;
+      top: 1rem;
+      padding-top: 0.35rem;
+    }
+    .toc p {
+      margin: 0 0 0.55rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+    }
+    .toc nav { display: grid; gap: 0.15rem; }
+    .toc a {
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      padding: 0.28rem 0 0.28rem 0.65rem;
+      border-left: 2px solid transparent;
+      margin-left: -0.65rem;
+    }
+    .toc a:hover {
+      color: var(--accent);
+      border-left-color: var(--accent);
+    }
+
+    .main { min-width: 0; max-width: var(--read); }
+    h2 {
+      font-size: clamp(1.35rem, 2.2vw, 1.65rem);
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -0.025em;
+      margin: 2.35rem 0 0.7rem;
+      scroll-margin-top: 1.25rem;
+    }
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin: 1.45rem 0 0.5rem;
+    }
+    p { margin: 0 0 0.95rem; }
+    ol, ul { padding-left: 1.2rem; margin: 0 0 1rem; }
+    li { margin: 0.4rem 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.5rem 0 1rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.7rem 0.45rem;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th {
+      color: var(--ink-muted);
+      font-weight: 700;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .note {
+      margin: 1rem 0;
+      padding: 0.95rem 1.05rem;
+      background: var(--accent-soft);
+      border-radius: 12px;
+    }
+    .note p { margin: 0; }
+    footer.site-foot {
+      max-width: var(--measure);
+      margin: 0 auto;
+      padding: 0 1.25rem 2.75rem;
+      color: var(--ink-muted);
+      font-size: 0.92rem;
+    }
+    footer.site-foot .inner {
+      max-width: var(--read);
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--line);
+    }
+
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; gap: 0.5rem; }
+      .toc { position: relative; top: 0; margin-bottom: 0.75rem; }
+      .toc nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem 0.85rem;
+      }
+      .toc a {
+        border-left: 0;
+        margin-left: 0;
+        padding-left: 0;
+        color: var(--accent);
+      }
+      .hero { padding-top: 1.75rem; }
+      .hero h1 { max-width: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <a class="brand" href="https://getverifycode.com/">GetVerifyCode</a>
+      <nav class="top-links" aria-label="Related">
+        <a href="https://getverifycode.github.io/">OTP checklist</a>
+        <a href="https://getverifycode.gitbook.io/getverifycode-docs/">Guides</a>
+        <a href="https://getverifycode.com/">Product</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <h1>Why SMS OTP codes fail to arrive</h1>
+    <p class="lede">Most missed verification codes are not mysterious. The number was wrong, the carrier filtered the sender, or a resend invalidated the code the user still typed. Work this playbook before you blame the SMS provider.</p>
+    <p class="byline">By Alex Carter, Editor at GetVerifyCode</p>
+  </section>
+
+  <div class="layout">
+    <aside class="toc" aria-label="On this page">
+      <p>On this page</p>
+      <nav>
+        <a href="#confirm">Confirm the number</a>
+        <a href="#timing">Timing and resend</a>
+        <a href="#carrier">Carrier and device</a>
+        <a href="#app">App-side causes</a>
+        <a href="#virtual">Virtual numbers</a>
+        <a href="#support">Support order</a>
+        <a href="#related">Related</a>
+      </nav>
+    </aside>
+
+    <article class="main">
+      <h2 id="confirm">Confirm the number first</h2>
+      <ol>
+        <li>Ask the user to read back the full number, including country code.</li>
+        <li>Check that the app stored E.164 (for example <code>+14155550100</code>), not a national format with a leading zero still attached.</li>
+        <li>Retry with a different device or SIM only after the stored number is proven correct.</li>
+      </ol>
+      <p>A large share of failures stop here: wrong country picker, pasted spaces, or a landline that cannot receive SMS.</p>
+
+      <h2 id="timing">Timing and resend behavior</h2>
+      <ul>
+        <li>Codes usually expire in a few minutes. Entering an old code after a resend often returns "invalid".</li>
+        <li>Each resend should cancel the previous code. If the UI still accepts the first code, that is a product bug, not a carrier issue.</li>
+        <li>Rapid resend clicks can trip provider or app rate limits. Wait for the cooldown.</li>
+      </ul>
+
+      <h2 id="carrier">Carrier and device causes</h2>
+      <table>
+        <thead>
+          <tr><th>Symptom</th><th>Likely cause</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>No SMS at all</td><td>Wrong number, blocked sender ID, or region the provider cannot reach</td></tr>
+          <tr><td>Delayed by minutes</td><td>Congestion, roaming, or deferred short-code delivery</td></tr>
+          <tr><td>Message in spam / blocked</td><td>Carrier filtering or device SMS blocker</td></tr>
+          <tr><td>Arrives without a usable code</td><td>Truncated template, encoding issue, or wrong message thread</td></tr>
+        </tbody>
+      </table>
+      <p>Also check signal, airplane mode, dual-SIM routing, and a full SMS inbox on older devices.</p>
+
+      <h2 id="app">App-side causes worth logging</h2>
+      <ul>
+        <li>The provider rejected the send (invalid destination, unsupported country, insufficient balance).</li>
+        <li>The app never called the gateway because validation failed silently.</li>
+        <li>The code was generated but the SMS template omitted it.</li>
+        <li>Logs or analytics stored the OTP string (security issue) while the user still saw nothing.</li>
+      </ul>
+      <p>Log provider response codes and message IDs. Do not log the OTP itself.</p>
+
+      <h2 id="virtual">Temporary numbers and virtual ranges</h2>
+      <p>Some platforms refuse known virtual or VoIP ranges. If you are testing with a temporary inbound number, confirm that the destination app accepts that number type. Failure here is policy, not delivery.</p>
+      <div class="note">
+        <p>With <a href="https://getverifycode.com/">GetVerifyCode</a>, you reserve a number for about 20 minutes and read inbound SMS in the browser. If no SMS arrives for that hold, the held amount returns to your wallet. Top up your wallet from $1; each number is priced live.</p>
+      </div>
+
+      <h2 id="support">Escalation order for support</h2>
+      <ol>
+        <li>Verify the exact number on file.</li>
+        <li>Check whether a code was generated and whether the provider accepted the send.</li>
+        <li>Ask for approximate wait time and whether any SMS from other senders arrived in that window.</li>
+        <li>Offer a resend after the cooldown, then a different number or channel if the product allows it.</li>
+        <li>File a ticket with provider message ID, country, and timestamp. Never paste live OTPs into tickets.</li>
+      </ol>
+
+      <h2 id="related">Related</h2>
+      <ul>
+        <li>Longer blog list: <a href="https://getverifycode.com/blog/didnt-receive-verification-code-sms-fixes">Didn't get the verification code? 12 fixes</a></li>
+        <li>Release checklist: <a href="https://getverifycode.github.io/">OTP / SMS testing checklist</a></li>
+        <li>Guides hub: <a href="https://getverifycode.gitbook.io/getverifycode-docs/">GetVerifyCode Guides</a></li>
+      </ul>
+    </article>
+  </div>
+
+  <footer class="site-foot">
+    <div class="inner">
+      Maintained by <a href="https://getverifycode.com/">GetVerifyCode</a>.
+      Companion docs: <a href="https://getverifycode.github.io/">github.io checklist</a>
+      and <a href="https://getverifycode.gitbook.io/getverifycode-docs/">GitBook guides</a>.
+    </div>
+  </footer>
+</body>
+</html>
