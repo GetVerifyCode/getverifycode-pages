@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://getverifycode.pages.dev/sitemap.xml
